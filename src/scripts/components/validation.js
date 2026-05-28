@@ -17,6 +17,15 @@ const hideInputError = (formElement, inputElement, settings) => {
 };
 
 const checkInputValidity = (formElement, inputElement, settings) => {
+  if (inputElement.id === 'name' || inputElement.id === 'card-name') {
+    const regex = /^[A-Za-zА-Яа-яёЁ\-\s]*$/;
+    if (inputElement.value.trim() && !regex.test(inputElement.value.trim())) {
+      inputElement.setCustomValidity('Разрешены только буквы (латиница/кириллица), дефис и пробел');
+      showInputError(formElement, inputElement, inputElement.validationMessage, settings);
+      return;
+    }
+  }
+  
   if (inputElement.validity.patternMismatch || inputElement.validity.typeMismatch) {
     inputElement.setCustomValidity(inputElement.dataset.errorMessage);
     showInputError(

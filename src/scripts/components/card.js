@@ -1,7 +1,3 @@
-export const likeCard = (likeButton) => {
-  likeButton.classList.toggle("card__like-button_is-active");
-};
-
 export const deleteCard = (cardElement) => {
   cardElement.remove();
 };
