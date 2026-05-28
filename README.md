@@ -1,1 +1,1 @@
-https://github.com/vulki-rus/mesto-ad
+https://github.com/vulki-rus/mesto-ad-pages
