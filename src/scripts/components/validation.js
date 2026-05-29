@@ -17,41 +17,19 @@ const hideInputError = (formElement, inputElement, settings) => {
 };
 
 const checkInputValidity = (formElement, inputElement, settings) => {
-  if (inputElement.id === 'name' || inputElement.id === 'card-name') {
-    const regex = /^[A-Za-zА-Яа-яёЁ\-\s]*$/;
-    if (inputElement.value.trim() && !regex.test(inputElement.value.trim())) {
-      inputElement.setCustomValidity('Разрешены только буквы (латиница/кириллица), дефис и пробел');
-      showInputError(formElement, inputElement, inputElement.validationMessage, settings);
-      return;
-    }
+  // Только для patternMismatch устанавливаем кастомное сообщение
+  if (inputElement.validity.patternMismatch) {
+    inputElement.setCustomValidity(inputElement.dataset.errorMessage);
+  } else {
+    inputElement.setCustomValidity("");
   }
   
-  if (inputElement.validity.patternMismatch || inputElement.validity.typeMismatch) {
-    inputElement.setCustomValidity(inputElement.dataset.errorMessage);
-    showInputError(
-      formElement,
-      inputElement,
-      inputElement.validationMessage,
-      settings,
-    );
-    return;
+  // Для всех ошибок показываем сообщение
+  if (!inputElement.validity.valid) {
+    showInputError(formElement, inputElement, inputElement.validationMessage, settings);
+  } else {
+    hideInputError(formElement, inputElement, settings);
   }
-
-  const trimmedValueLength = inputElement.value.trim().length;
-  const minLength = parseInt(inputElement.getAttribute("minlength"));
-  if (trimmedValueLength < minLength) {
-    inputElement.setCustomValidity(`Пожалуйста, используйте не менее ${minLength} символов.`);
-    showInputError(
-      formElement,
-      inputElement,
-      inputElement.validationMessage,
-      settings,
-    );
-    return;
-  }
-
-  inputElement.setCustomValidity("");
-  hideInputError(formElement, inputElement, settings);
 };
 
 const hasInvalidInput = (inputsElements) => {

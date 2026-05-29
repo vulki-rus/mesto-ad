@@ -5,6 +5,19 @@ const getTemplate = () => {
     .cloneNode(true);
 };
 
+// Функция для обновления состояния лайка на карточке
+export const updateLikeState = (cardElement, updatedCard, isLiked) => {
+  const likeButton = cardElement.querySelector(".card__like-button");
+  const likeCount = cardElement.querySelector(".card__like-count");
+  
+  likeCount.textContent = updatedCard.likes.length;
+  if (isLiked) {
+    likeButton.classList.add("card__like-button_is-active");
+  } else {
+    likeButton.classList.remove("card__like-button_is-active");
+  }
+};
+
 export const createCardElement = (data, userId, callbacks) => {
   const cardElement = getTemplate();
   const likeButton = cardElement.querySelector(".card__like-button");
@@ -32,7 +45,7 @@ export const createCardElement = (data, userId, callbacks) => {
   // Лайк
   likeButton.addEventListener("click", () => {
     const isCurrentlyLiked = likeButton.classList.contains("card__like-button_is-active");
-    callbacks.onLike(data._id, isCurrentlyLiked, { likeButton, likeCount });
+    callbacks.onLike(data._id, isCurrentlyLiked, cardElement);
   });
 
   // Открытие фото

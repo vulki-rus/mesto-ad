@@ -17,7 +17,7 @@ import {
   deleteCard,
   changeLikeCardStatus 
 } from './components/api.js';
-import { createCardElement } from './components/card.js';
+import { createCardElement, updateLikeState } from './components/card.js';
 
 // Создание объекта с настройками валидации
 const validationSettings = {
@@ -59,6 +59,8 @@ const avatarFormModalWindow = document.querySelector(".popup_type_edit-avatar");
 const avatarForm = avatarFormModalWindow.querySelector(".popup__form");
 const avatarInput = avatarForm.querySelector(".popup__input");
 
+const statsPopup = document.querySelector(".popup_type_info");
+
 let currentUserId = null;
 let allCards = [];
 
@@ -69,12 +71,123 @@ const handlePreviewPicture = ({ name, link }) => {
   openModalWindow(imageModalWindow);
 };
 
+// Функция показа статистики
+const showStats = () => {
+  if (!statsPopup) return;
+  if (!allCards.length) return;
+  
+  // Очищаем контейнеры
+  const statsInfo = statsPopup.querySelector('.popup__info');
+  const statsList = statsPopup.querySelector('.popup__list');
+  statsInfo.innerHTML = '';
+  statsList.innerHTML = '';
+  
+  // Собираем всех пользователей с их лайками
+  const usersMap = new Map();
+  
+  // Добавляем текущего пользователя
+  usersMap.set(currentUserId, { 
+    name: profileTitle.textContent, 
+    likeCount: 0 
+  });
+  
+  // Собираем пользователей из лайков
+  allCards.forEach(card => {
+    if (card && card.likes) {
+      card.likes.forEach(like => {
+        if (!usersMap.has(like._id)) {
+          usersMap.set(like._id, { 
+            name: like.name || `Пользователь ${like._id.slice(-6)}`, 
+            likeCount: 0 
+          });
+        }
+      });
+    }
+  });
+  
+  // Собираем владельцев карточек, которых еще нет
+  allCards.forEach(card => {
+    if (card && card.owner && !usersMap.has(card.owner._id)) {
+      usersMap.set(card.owner._id, { 
+        name: `Пользователь ${card.owner._id.slice(-6)}`, 
+        likeCount: 0 
+      });
+    }
+  });
+  
+  // Считаем лайки для каждого пользователя
+  allCards.forEach(card => {
+    if (card && card.likes) {
+      card.likes.forEach(like => {
+        const user = usersMap.get(like._id);
+        if (user) user.likeCount += 1;
+      });
+    }
+  });
+  
+  const usersList = Array.from(usersMap.entries())
+    .map(([id, data]) => ({ id, ...data }))
+    .sort((a, b) => b.likeCount - a.likeCount);
+  
+  // Топ карточек по лайкам
+  const topCards = [...allCards]
+    .filter(card => card && card.likes)
+    .sort((a, b) => b.likes.length - a.likes.length)
+    .slice(0, 3);
+  
+  // Общая статистика
+  const totalUsers = usersMap.size;
+  const totalLikes = allCards.reduce((sum, card) => sum + (card.likes ? card.likes.length : 0), 0);
+  const maxLikesFromOne = usersList[0]?.likeCount || 0;
+  const championName = usersList[0]?.id === currentUserId ? profileTitle.textContent : (usersList[0]?.name || '-');
+  
+  // Заполняем заголовок
+  statsPopup.querySelector('.popup__title').textContent = 'Статистика карточек';
+  
+  // Заполняем информацию
+  const statsData = [
+    { term: 'Всего пользователей:', description: totalUsers },
+    { term: 'Всего лайков:', description: totalLikes },
+    { term: 'Максимально лайков от одного:', description: maxLikesFromOne },
+    { term: 'Чемпион лайков:', description: championName }
+  ];
+  
+  statsData.forEach(stat => {
+    const infoItem = document.createElement('div');
+    infoItem.className = 'popup__info-item';
+    infoItem.innerHTML = `
+      <dt class="popup__info-term">${stat.term}</dt>
+      <dd class="popup__info-description">${stat.description}</dd>
+    `;
+    statsInfo.appendChild(infoItem);
+  });
+  
+  // Заполняем текст и список популярных карточек
+  statsPopup.querySelector('.popup__text').textContent = 'Популярные карточки:';
+  
+  if (topCards.length === 0) {
+    const emptyItem = document.createElement('li');
+    emptyItem.className = 'popup__list-item';
+    emptyItem.textContent = 'Нет карточек';
+    statsList.appendChild(emptyItem);
+  } else {
+    topCards.forEach(card => {
+      const cardItem = document.createElement('li');
+      cardItem.className = 'popup__list-item popup__list-item_type_badge';
+      cardItem.textContent = card.name;
+      statsList.appendChild(cardItem);
+    });
+  }
+  
+  openModalWindow(statsPopup);
+};
+
 // Обработчик лайка
-const handleLike = (cardId, isCurrentlyLiked, { likeButton, likeCount }) => {
+const handleLike = (cardId, isCurrentlyLiked, cardElement) => {
   changeLikeCardStatus(cardId, isCurrentlyLiked)
     .then((updatedCard) => {
-      likeCount.textContent = updatedCard.likes.length;
-      likeButton.classList.toggle('card__like-button_is-active');
+      // Вся работа с DOM карточки вынесена в card.js
+      updateLikeState(cardElement, updatedCard, !isCurrentlyLiked);
       
       // Обновляем данные в allCards
       const cardIndex = allCards.findIndex(c => c._id === cardId);
@@ -105,8 +218,8 @@ const renderCards = (cards, userId) => {
   cards.forEach((cardData) => {
     const cardElement = createCardElement(cardData, userId, {
       onDelete: (cardElement, cardId) => handleDelete(cardId, cardElement),
-      onLike: (cardId, isCurrentlyLiked, elements) => 
-        handleLike(cardId, isCurrentlyLiked, elements),
+      onLike: (cardId, isCurrentlyLiked, cardElement) => 
+        handleLike(cardId, isCurrentlyLiked, cardElement),
       onImageClick: (data) => handlePreviewPicture(data)
     });
     
@@ -174,8 +287,8 @@ const handleCardFormSubmit = (evt) => {
     .then((newCard) => {
       const cardElement = createCardElement(newCard, currentUserId, {
         onDelete: (cardElement, cardId) => handleDelete(cardId, cardElement),
-        onLike: (cardId, isCurrentlyLiked, elements) => 
-          handleLike(cardId, isCurrentlyLiked, elements),
+        onLike: (cardId, isCurrentlyLiked, cardElement) => 
+          handleLike(cardId, isCurrentlyLiked, cardElement),
         onImageClick: (data) => handlePreviewPicture(data)
       });
       
@@ -225,6 +338,16 @@ openCardFormButton.addEventListener("click", () => {
   clearValidation(cardForm, validationSettings);
   openModalWindow(cardFormModalWindow);
 });
+
+// Обработчик на логотип
+const logo = document.querySelector(".header__logo");
+if (logo) {
+  logo.style.cursor = "pointer";
+  logo.addEventListener("click", (e) => {
+    e.preventDefault();
+    showStats();
+  });
+}
 
 // настраиваем обработчики закрытия попапов
 document.querySelectorAll(".popup").forEach((popup) => {
